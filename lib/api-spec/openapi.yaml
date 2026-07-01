@@ -1,0 +1,1712 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: FormFlow API - AI Martial Arts Form Trainer
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User profile management
+  - name: dojos
+    description: Dojo management
+  - name: disciplines
+    description: Discipline management
+  - name: forms
+    description: Form management
+  - name: postures
+    description: Posture management
+  - name: joints
+    description: Joint rule management
+  - name: sessions
+    description: Training sessions
+  - name: stripe
+    description: Stripe payment webhooks
+  - name: admin
+    description: Platform admin
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Auth ─────────────────────────────────────────────────────────────────
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthenticated
+
+  # ─── Users ────────────────────────────────────────────────────────────────
+  /users/profile:
+    patch:
+      operationId: updateProfile
+      tags: [users]
+      summary: Update user profile (name, camera side preference)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users (admin only)
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+        - in: query
+          name: dojo_id
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /users/{userId}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user role/dojo (admin only)
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{userId}/sessions:
+    get:
+      operationId: getUserSessions
+      tags: [users]
+      summary: Get session history for a user
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+
+  # ─── Dojos ────────────────────────────────────────────────────────────────
+  /dojos:
+    get:
+      operationId: listDojos
+      tags: [dojos]
+      summary: List all dojos (admin) or single dojo (dojo_admin)
+      responses:
+        "200":
+          description: List of dojos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Dojo"
+    post:
+      operationId: createDojo
+      tags: [dojos]
+      summary: Create a new dojo (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DojoInput"
+      responses:
+        "201":
+          description: Created dojo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dojo"
+
+  /dojos/{dojoId}:
+    get:
+      operationId: getDojo
+      tags: [dojos]
+      summary: Get dojo by ID
+      parameters:
+        - in: path
+          name: dojoId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dojo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dojo"
+    patch:
+      operationId: updateDojo
+      tags: [dojos]
+      summary: Update dojo settings
+      parameters:
+        - in: path
+          name: dojoId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DojoUpdate"
+      responses:
+        "200":
+          description: Updated dojo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dojo"
+    delete:
+      operationId: deleteDojo
+      tags: [dojos]
+      summary: Delete a dojo (admin only)
+      parameters:
+        - in: path
+          name: dojoId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /dojos/by-slug/{slug}:
+    get:
+      operationId: getDojoBySlug
+      tags: [dojos]
+      summary: Get public dojo info by slug (no auth required)
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public dojo info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DojoPublic"
+
+  /dojos/{dojoId}/stats:
+    get:
+      operationId: getDojoStats
+      tags: [dojos]
+      summary: Get stats for a dojo (students, sessions, avg score)
+      parameters:
+        - in: path
+          name: dojoId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dojo stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DojoStats"
+
+  /dojos/{dojoId}/students:
+    get:
+      operationId: getDojoStudents
+      tags: [dojos]
+      summary: Get students in a dojo
+      parameters:
+        - in: path
+          name: dojoId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+
+  /dojos/{dojoId}/invite:
+    post:
+      operationId: regenerateInviteCode
+      tags: [dojos]
+      summary: Regenerate the dojo invite code
+      parameters:
+        - in: path
+          name: dojoId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New invite code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCode"
+
+  /dojos/{dojoId}/leave:
+    post:
+      operationId: leaveDojo
+      tags: [dojos]
+      summary: Leave a dojo (student only)
+      parameters:
+        - in: path
+          name: dojoId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+
+  /dojos/{dojoId}/remove-student/{userId}:
+    delete:
+      operationId: removeStudentFromDojo
+      tags: [dojos]
+      summary: Remove a student from dojo (dojo_admin only)
+      parameters:
+        - in: path
+          name: dojoId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
+
+  /dojos/join:
+    post:
+      operationId: joinDojoByInvite
+      tags: [dojos]
+      summary: Join a dojo by invite code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinDojoInput"
+      responses:
+        "200":
+          description: Joined dojo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dojo"
+
+  # ─── Disciplines ──────────────────────────────────────────────────────────
+  /disciplines:
+    get:
+      operationId: listDisciplines
+      tags: [disciplines]
+      summary: List all disciplines (public + dojo-specific)
+      parameters:
+        - in: query
+          name: dojo_id
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of disciplines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Discipline"
+    post:
+      operationId: createDiscipline
+      tags: [disciplines]
+      summary: Create a discipline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisciplineInput"
+      responses:
+        "201":
+          description: Created discipline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Discipline"
+
+  /disciplines/{disciplineId}:
+    patch:
+      operationId: updateDiscipline
+      tags: [disciplines]
+      summary: Update a discipline
+      parameters:
+        - in: path
+          name: disciplineId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisciplineUpdate"
+      responses:
+        "200":
+          description: Updated discipline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Discipline"
+    delete:
+      operationId: deleteDiscipline
+      tags: [disciplines]
+      summary: Delete a discipline
+      parameters:
+        - in: path
+          name: disciplineId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Forms ────────────────────────────────────────────────────────────────
+  /forms:
+    get:
+      operationId: listForms
+      tags: [forms]
+      summary: List forms (public + dojo-specific based on user)
+      parameters:
+        - in: query
+          name: discipline_id
+          schema:
+            type: string
+        - in: query
+          name: dojo_id
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of forms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Form"
+    post:
+      operationId: createForm
+      tags: [forms]
+      summary: Create a form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormInput"
+      responses:
+        "201":
+          description: Created form
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Form"
+
+  /forms/{formId}:
+    get:
+      operationId: getForm
+      tags: [forms]
+      summary: Get a form with its postures and joints
+      parameters:
+        - in: path
+          name: formId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Form with postures
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormDetail"
+    patch:
+      operationId: updateForm
+      tags: [forms]
+      summary: Update form metadata
+      parameters:
+        - in: path
+          name: formId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormUpdate"
+      responses:
+        "200":
+          description: Updated form
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Form"
+    delete:
+      operationId: deleteForm
+      tags: [forms]
+      summary: Delete a form
+      parameters:
+        - in: path
+          name: formId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /forms/{formId}/publish:
+    post:
+      operationId: publishForm
+      tags: [forms]
+      summary: Publish a recorded form (saves postures + joints from recorder)
+      parameters:
+        - in: path
+          name: formId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormPublishInput"
+      responses:
+        "200":
+          description: Published form
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Form"
+
+  # ─── Postures ─────────────────────────────────────────────────────────────
+  /forms/{formId}/postures:
+    get:
+      operationId: listPostures
+      tags: [postures]
+      summary: List postures for a form
+      parameters:
+        - in: path
+          name: formId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of postures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Posture"
+    post:
+      operationId: createPosture
+      tags: [postures]
+      summary: Add a posture to a form
+      parameters:
+        - in: path
+          name: formId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostureInput"
+      responses:
+        "201":
+          description: Created posture
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Posture"
+
+  /postures/{postureId}:
+    patch:
+      operationId: updatePosture
+      tags: [postures]
+      summary: Update a posture
+      parameters:
+        - in: path
+          name: postureId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostureUpdate"
+      responses:
+        "200":
+          description: Updated posture
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Posture"
+    delete:
+      operationId: deletePosture
+      tags: [postures]
+      summary: Delete a posture
+      parameters:
+        - in: path
+          name: postureId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /forms/{formId}/postures/reorder:
+    patch:
+      operationId: reorderPostures
+      tags: [postures]
+      summary: Reorder postures within a form
+      parameters:
+        - in: path
+          name: formId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderInput"
+      responses:
+        "200":
+          description: Reordered
+
+  # ─── Joints ───────────────────────────────────────────────────────────────
+  /postures/{postureId}/joints:
+    get:
+      operationId: listJoints
+      tags: [joints]
+      summary: List joints for a posture
+      parameters:
+        - in: path
+          name: postureId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of joints
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Joint"
+    post:
+      operationId: createJoint
+      tags: [joints]
+      summary: Add a joint rule to a posture
+      parameters:
+        - in: path
+          name: postureId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JointInput"
+      responses:
+        "201":
+          description: Created joint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Joint"
+
+  /joints/{jointId}:
+    patch:
+      operationId: updateJoint
+      tags: [joints]
+      summary: Update a joint rule
+      parameters:
+        - in: path
+          name: jointId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JointUpdate"
+      responses:
+        "200":
+          description: Updated joint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Joint"
+    delete:
+      operationId: deleteJoint
+      tags: [joints]
+      summary: Delete a joint rule
+      parameters:
+        - in: path
+          name: jointId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Sessions ─────────────────────────────────────────────────────────────
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List training sessions for current user
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Start a new training session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionInput"
+      responses:
+        "201":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+
+  /sessions/{sessionId}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get a session with posture scores
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionDetail"
+    patch:
+      operationId: completeSession
+      tags: [sessions]
+      summary: Complete a session (save total score, timestamps)
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionUpdate"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+
+  /sessions/{sessionId}/scores:
+    post:
+      operationId: savePostureScore
+      tags: [sessions]
+      summary: Save a posture score within a session
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostureScoreInput"
+      responses:
+        "201":
+          description: Saved score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostureScore"
+
+  # ─── Dashboard/Progress ───────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [sessions]
+      summary: Get student dashboard stats (streak, total sessions, avg score)
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/progress:
+    get:
+      operationId: getProgressData
+      tags: [sessions]
+      summary: Get progress data (most improved, weakest posture, sparklines)
+      responses:
+        "200":
+          description: Progress data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressData"
+
+  # ─── Admin ────────────────────────────────────────────────────────────────
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Platform-wide stats (admin only)
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [admin]
+      summary: Recent session activity feed (admin only)
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  # ─── Stripe ───────────────────────────────────────────────────────────────
+  /stripe-webhook:
+    post:
+      operationId: stripeWebhook
+      tags: [stripe]
+      summary: Stripe webhook handler
+      responses:
+        "200":
+          description: Received
+
+  /stripe/checkout:
+    post:
+      operationId: createCheckoutSession
+      tags: [stripe]
+      summary: Create a Stripe Checkout session for student subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: Checkout URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResult"
+
+  /stripe/portal:
+    post:
+      operationId: createPortalSession
+      tags: [stripe]
+      summary: Create Stripe Customer Portal session for dojo billing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortalInput"
+      responses:
+        "200":
+          description: Portal URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalResult"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    # ─── User ───────────────────────────────────────────────────────────────
+    User:
+      type: object
+      required: [id, email, role]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: ["string", "null"]
+        role:
+          type: string
+        dojo_id:
+          type: ["string", "null"]
+        stripe_customer_id:
+          type: ["string", "null"]
+        subscription_status:
+          type: string
+        camera_side:
+          type: ["string", "null"]
+        created_at:
+          type: string
+
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        camera_side:
+          type: string
+
+    UserUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+        dojo_id:
+          type: ["string", "null"]
+
+    Student:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: ["string", "null"]
+        sessions_count:
+          type: integer
+        avg_score:
+          type: ["number", "null"]
+        last_active:
+          type: ["string", "null"]
+
+    # ─── Dojo ───────────────────────────────────────────────────────────────
+    Dojo:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        logo_url:
+          type: ["string", "null"]
+        accent_color:
+          type: string
+        invite_code:
+          type: ["string", "null"]
+        stripe_customer_id:
+          type: ["string", "null"]
+        subscription_status:
+          type: string
+        subscription_tier:
+          type: string
+        created_at:
+          type: string
+
+    DojoPublic:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        logo_url:
+          type: ["string", "null"]
+        accent_color:
+          type: string
+        student_count:
+          type: integer
+        form_count:
+          type: integer
+
+    DojoInput:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        accent_color:
+          type: string
+        logo_url:
+          type: ["string", "null"]
+
+    DojoUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        logo_url:
+          type: ["string", "null"]
+        accent_color:
+          type: string
+
+    DojoStats:
+      type: object
+      required: [student_count, session_count, avg_score, form_count]
+      properties:
+        student_count:
+          type: integer
+        session_count:
+          type: integer
+        avg_score:
+          type: ["number", "null"]
+        form_count:
+          type: integer
+
+    InviteCode:
+      type: object
+      required: [invite_code]
+      properties:
+        invite_code:
+          type: string
+
+    JoinDojoInput:
+      type: object
+      required: [invite_code]
+      properties:
+        invite_code:
+          type: string
+
+    # ─── Discipline ─────────────────────────────────────────────────────────
+    Discipline:
+      type: object
+      required: [id, slug, name, is_public]
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        dojo_id:
+          type: ["string", "null"]
+        is_public:
+          type: boolean
+        sort_order:
+          type: integer
+        created_at:
+          type: string
+
+    DisciplineInput:
+      type: object
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        dojo_id:
+          type: ["string", "null"]
+        is_public:
+          type: boolean
+        sort_order:
+          type: integer
+
+    DisciplineUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        is_public:
+          type: boolean
+        sort_order:
+          type: integer
+
+    # ─── Form ───────────────────────────────────────────────────────────────
+    Form:
+      type: object
+      required: [id, slug, name, discipline_id]
+      properties:
+        id:
+          type: string
+        discipline_id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        difficulty:
+          type: string
+        camera_default:
+          type: string
+        estimated_minutes:
+          type: integer
+        is_free:
+          type: boolean
+        sort_order:
+          type: integer
+        recording_count:
+          type: integer
+        posture_count:
+          type: integer
+        best_score:
+          type: ["number", "null"]
+        created_at:
+          type: string
+
+    FormDetail:
+      type: object
+      required: [id, slug, name, discipline_id, postures]
+      properties:
+        id:
+          type: string
+        discipline_id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        difficulty:
+          type: string
+        camera_default:
+          type: string
+        estimated_minutes:
+          type: integer
+        is_free:
+          type: boolean
+        recording_count:
+          type: integer
+        postures:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostureWithJoints"
+
+    FormInput:
+      type: object
+      required: [name, slug, discipline_id]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        discipline_id:
+          type: string
+        description:
+          type: ["string", "null"]
+        difficulty:
+          type: string
+        camera_default:
+          type: string
+        estimated_minutes:
+          type: integer
+        is_free:
+          type: boolean
+
+    FormUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        difficulty:
+          type: string
+        camera_default:
+          type: string
+        estimated_minutes:
+          type: integer
+        is_free:
+          type: boolean
+
+    FormPublishInput:
+      type: object
+      required: [postures]
+      properties:
+        postures:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordedPosture"
+
+    RecordedPosture:
+      type: object
+      required: [name, sequence_number, joints]
+      properties:
+        sequence_number:
+          type: integer
+        name:
+          type: string
+        audio_cue_text:
+          type: ["string", "null"]
+        tips:
+          type: ["string", "null"]
+        joints:
+          type: array
+          items:
+            $ref: "#/components/schemas/JointInput"
+
+    # ─── Posture ─────────────────────────────────────────────────────────────
+    Posture:
+      type: object
+      required: [id, form_id, sequence_number, name]
+      properties:
+        id:
+          type: string
+        form_id:
+          type: string
+        sequence_number:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        hold_duration_ms:
+          type: integer
+        transition_duration_ms:
+          type: integer
+        camera_override:
+          type: ["string", "null"]
+        reference_image_url:
+          type: ["string", "null"]
+        audio_cue_text:
+          type: ["string", "null"]
+        tips:
+          type: ["string", "null"]
+        created_at:
+          type: string
+
+    PostureWithJoints:
+      type: object
+      required: [id, form_id, sequence_number, name, joints]
+      properties:
+        id:
+          type: string
+        form_id:
+          type: string
+        sequence_number:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        hold_duration_ms:
+          type: integer
+        transition_duration_ms:
+          type: integer
+        camera_override:
+          type: ["string", "null"]
+        reference_image_url:
+          type: ["string", "null"]
+        audio_cue_text:
+          type: ["string", "null"]
+        tips:
+          type: ["string", "null"]
+        joints:
+          type: array
+          items:
+            $ref: "#/components/schemas/Joint"
+
+    PostureInput:
+      type: object
+      required: [name, sequence_number]
+      properties:
+        sequence_number:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        hold_duration_ms:
+          type: integer
+        transition_duration_ms:
+          type: integer
+        camera_override:
+          type: ["string", "null"]
+        audio_cue_text:
+          type: ["string", "null"]
+        tips:
+          type: ["string", "null"]
+
+    PostureUpdate:
+      type: object
+      properties:
+        sequence_number:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        hold_duration_ms:
+          type: integer
+        transition_duration_ms:
+          type: integer
+        camera_override:
+          type: ["string", "null"]
+        audio_cue_text:
+          type: ["string", "null"]
+        tips:
+          type: ["string", "null"]
+
+    ReorderInput:
+      type: object
+      required: [order]
+      properties:
+        order:
+          type: array
+          items:
+            type: string
+
+    # ─── Joint ───────────────────────────────────────────────────────────────
+    Joint:
+      type: object
+      required: [id, posture_id, joint_id, joint_label, landmark_a, landmark_b, landmark_c, target_angle]
+      properties:
+        id:
+          type: string
+        posture_id:
+          type: string
+        joint_id:
+          type: string
+        joint_label:
+          type: string
+        landmark_a:
+          type: string
+        landmark_b:
+          type: string
+        landmark_c:
+          type: string
+        target_angle:
+          type: number
+        tolerance_degrees:
+          type: number
+        weight:
+          type: number
+        cue_too_low:
+          type: ["string", "null"]
+        cue_too_high:
+          type: ["string", "null"]
+        cue_correct:
+          type: ["string", "null"]
+        created_at:
+          type: string
+
+    JointInput:
+      type: object
+      required: [joint_id, joint_label, landmark_a, landmark_b, landmark_c, target_angle]
+      properties:
+        joint_id:
+          type: string
+        joint_label:
+          type: string
+        landmark_a:
+          type: string
+        landmark_b:
+          type: string
+        landmark_c:
+          type: string
+        target_angle:
+          type: number
+        tolerance_degrees:
+          type: number
+        weight:
+          type: number
+        cue_too_low:
+          type: ["string", "null"]
+        cue_too_high:
+          type: ["string", "null"]
+        cue_correct:
+          type: ["string", "null"]
+
+    JointUpdate:
+      type: object
+      properties:
+        joint_label:
+          type: string
+        landmark_a:
+          type: string
+        landmark_b:
+          type: string
+        landmark_c:
+          type: string
+        target_angle:
+          type: number
+        tolerance_degrees:
+          type: number
+        weight:
+          type: number
+        cue_too_low:
+          type: ["string", "null"]
+        cue_too_high:
+          type: ["string", "null"]
+        cue_correct:
+          type: ["string", "null"]
+
+    # ─── Sessions ────────────────────────────────────────────────────────────
+    Session:
+      type: object
+      required: [id, user_id, form_id]
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        form_id:
+          type: string
+        form_name:
+          type: ["string", "null"]
+        total_score:
+          type: ["number", "null"]
+        postures_completed:
+          type: integer
+        started_at:
+          type: string
+        completed_at:
+          type: ["string", "null"]
+
+    SessionDetail:
+      type: object
+      required: [id, user_id, form_id, scores]
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        form_id:
+          type: string
+        form_name:
+          type: ["string", "null"]
+        total_score:
+          type: ["number", "null"]
+        postures_completed:
+          type: integer
+        started_at:
+          type: string
+        completed_at:
+          type: ["string", "null"]
+        scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostureScore"
+
+    SessionInput:
+      type: object
+      required: [form_id]
+      properties:
+        form_id:
+          type: string
+
+    SessionUpdate:
+      type: object
+      properties:
+        total_score:
+          type: number
+        postures_completed:
+          type: integer
+        completed_at:
+          type: string
+
+    PostureScore:
+      type: object
+      required: [id, session_id, posture_id, score]
+      properties:
+        id:
+          type: string
+        session_id:
+          type: string
+        posture_id:
+          type: string
+        posture_name:
+          type: ["string", "null"]
+        score:
+          type: number
+        joint_angles_json:
+          type: ["object", "null"]
+        feedback_given:
+          type: array
+          items:
+            type: string
+        captured_at:
+          type: string
+
+    PostureScoreInput:
+      type: object
+      required: [posture_id, score]
+      properties:
+        posture_id:
+          type: string
+        score:
+          type: number
+        joint_angles_json:
+          type: ["object", "null"]
+        feedback_given:
+          type: array
+          items:
+            type: string
+
+    # ─── Dashboard ───────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [streak, total_sessions, avg_score]
+      properties:
+        streak:
+          type: integer
+        total_sessions:
+          type: integer
+        avg_score:
+          type: ["number", "null"]
+
+    ProgressData:
+      type: object
+      required: [sparklines]
+      properties:
+        most_improved_posture:
+          type: ["string", "null"]
+        weakest_posture:
+          type: ["string", "null"]
+        sparklines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SparklineData"
+
+    SparklineData:
+      type: object
+      required: [form_id, form_name, scores]
+      properties:
+        form_id:
+          type: string
+        form_name:
+          type: string
+        scores:
+          type: array
+          items:
+            type: number
+
+    # ─── Admin ───────────────────────────────────────────────────────────────
+    AdminStats:
+      type: object
+      required: [total_dojos, total_students, total_sessions_today, total_sessions_week, total_sessions_all, total_forms, avg_score]
+      properties:
+        total_dojos:
+          type: integer
+        dojos_active:
+          type: integer
+        dojos_trialing:
+          type: integer
+        dojos_canceled:
+          type: integer
+        total_students:
+          type: integer
+        total_sessions_today:
+          type: integer
+        total_sessions_week:
+          type: integer
+        total_sessions_all:
+          type: integer
+        total_forms:
+          type: integer
+        avg_score:
+          type: ["number", "null"]
+
+    ActivityItem:
+      type: object
+      required: [session_id, user_email, form_name, score, started_at]
+      properties:
+        session_id:
+          type: string
+        user_email:
+          type: string
+        form_name:
+          type: string
+        score:
+          type: ["number", "null"]
+        started_at:
+          type: string
+
+    # ─── Stripe ──────────────────────────────────────────────────────────────
+    CheckoutInput:
+      type: object
+      required: [price_type]
+      properties:
+        price_type:
+          type: string
+        dojo_id:
+          type: ["string", "null"]
+        success_url:
+          type: string
+        cancel_url:
+          type: string
+
+    CheckoutResult:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+
+    PortalInput:
+      type: object
+      required: [dojo_id]
+      properties:
+        dojo_id:
+          type: string
+        return_url:
+          type: string
+
+    PortalResult:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string

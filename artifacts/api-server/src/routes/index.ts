@@ -1,0 +1,40 @@
+import { Router, type IRouter } from "express";
+import healthRouter from "./health";
+import authRouter from "./auth";
+import usersRouter from "./users";
+import dojosRouter from "./dojos";
+import disciplinesRouter from "./disciplines";
+import formsRouter from "./forms";
+import posturesRouter from "./postures";
+import jointsRouter from "./joints";
+import sessionsRouter from "./sessions";
+import adminRouter from "./admin";
+import stripeRouter from "./stripe";
+import trainingRecordingGroupsRouter from "./trainingRecordingGroups";
+import trainingRecordingsRouter from "./trainingRecordings";
+import userMotionAttemptsRouter from "./userMotionAttempts";
+import calibrationRouter from "./calibration";
+import coachReviewsRouter from "./coachReviews";
+import privacyRouter from "./privacy";
+
+const router: IRouter = Router();
+
+router.use(healthRouter);
+router.use(authRouter);
+router.use(usersRouter);
+router.use(dojosRouter);
+router.use(disciplinesRouter);
+router.use(formsRouter);
+router.use(posturesRouter);
+router.use(jointsRouter);
+router.use(sessionsRouter);
+router.use(adminRouter);
+router.use(stripeRouter);
+router.use(trainingRecordingGroupsRouter);
+router.use(trainingRecordingsRouter);
+router.use(userMotionAttemptsRouter);
+router.use(calibrationRouter);
+router.use(coachReviewsRouter);
+router.use(privacyRouter);
+
+export default router;
